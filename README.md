@@ -71,6 +71,3 @@ Latex Scanner/
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
----
-*Created by Antigravity AI Team*
