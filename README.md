@@ -1,108 +1,76 @@
-# 🚀 PROJECT MASTER PLAN: ANTIGRAVITY MATH SOLVER
+# ✨ Latex Scanner
 
-**Project:** Hệ thống Nhận diện & Giải toán viết tay (Handwritten Math OCR & Solver)  
-**Team:** Antigravity  
-**Role:** AI & Software Engineering Team  
-**Timeline dự kiến:** 8 - 10 Tuần  
-
-## 📖 Giới thiệu
-Dự án nhằm xây dựng một hệ thống AI có khả năng nhận diện công thức toán học viết tay (Handwritten Math OCR) và tự động giải quyết bài toán đó. Hệ thống kết hợp giữa Vision Transformer (ViT) cho việc nhận diện hình ảnh và các thư viện toán học tượng trưng (SymPy) để đưa ra lời giải chi tiết.
+**Latex Scanner** is an AI-powered application that recognizes handwritten mathematical formulas and automatically solves them. The system combines a **Vision Transformer (ViT)** for image recognition with symbolic mathematics libraries to provide detailed solutions.
 
 ---
 
-## 📅 GIAI ĐOẠN 1: PHÂN TÍCH & ĐẶC TẢ (Weeks 1-2)
+## 🚀 Features
 
-**Mục tiêu:** Xác định rõ Input/Output và chuẩn bị "nguyên liệu" cho AI.
+- **Handwritten Math OCR**: Accurately recognizes handwritten math formulas and converts them to LaTeX.
+- **Smart Solver**: Automatically solves the recognized formulas and provides step-by-step solutions (integration in progress).
+- **User-Friendly Interface**: Clean and modern Web UI built with Streamlit.
+- **High Performance**: Optimized for low latency inference.
 
-### 1.1. Phân tích yêu cầu phần mềm (Software Requirements)
-- **Chức năng cốt lõi:**
-  - Người dùng chụp ảnh/upload ảnh chứa công thức toán.
-  - Hệ thống crop ảnh, tiền xử lý (khử nhiễu, cân bằng sáng).
-  - AI nhận diện ra chuỗi LaTeX (VD: `\int_{0}^{1} x^2 dx`).
-  - Module Solver giải ra kết quả cuối cùng.
-- **Yêu cầu phi chức năng (KPIs):**
-  - Độ trễ (Latency): < 2 giây/request (GPU T4) hoặc < 4 giây (CPU).
-  - Độ chính xác (Accuracy): > 90% trên tập test CROHME.
-  - Concurrency: Chịu tải tối thiểu 10 requests/giây.
+## 🛠 Tech Stack
 
-### 1.2. Đặc tả kỹ thuật & Dữ liệu (AI Specs & Data)
-- **Kiến trúc AI (SOTA):** Vision Encoder-Decoder.
-  - **Encoder:** ViT (Vision Transformer) hoặc ResNet-101.
-  - **Decoder:** GPT-2 (small) hoặc RoBERTa (sinh token LaTeX).
-- **Dữ liệu (Data Pipeline):**
-  - Nguồn: Tập dữ liệu CROHME (2014/2016/2019).
-  - Data Augmentation: Gaussian Noise, Elastic Transform, Random Rotation (+/- 15 độ), Brightness Contrast.
+- **Language**: Python 3.9+
+- **Deep Learning**: PyTorch, Transformers (HuggingFace)
+- **Vision Backbone**: Vision Transformer (ViT) / ResNet-101
+- **Decoder**: GPT-2 / RoBERTa
+- **Backend**: FastAPI
+- **Frontend**: Streamlit
+- **Math Engine**: SymPy
 
----
+## 📦 Installation
 
-## 📐 GIAI ĐOẠN 2: THIẾT KẾ HỆ THỐNG THEO CHUẨN UML (Week 3)
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/NotIsora/Latex-Scanner.git
+    cd Latex-Scanner
+    ```
 
-**Mục tiêu:** Xây dựng bản vẽ kỹ thuật cho hệ thống.
+2.  **Install dependencies**:
+    ```bash
+    # It is recommended to use a virtual environment
+    python -m venv venv
+    .\venv\Scripts\activate
+    
+    # Install requirements
+    pip install -r backend/requirements.txt
+    pip install -r frontend/requirements.txt
+    pip install -r ai_engine/requirements.txt
+    ```
 
-### 2.1. Kiến trúc hệ thống (System Architecture)
-Mô hình Microservices đơn giản hóa:
-- **Frontend (Client):** Streamlit (Web) hoặc Flutter (Mobile).
-- **API Gateway:** NGINX (Load Balancing).
-- **Backend Core:** FastAPI (Python) - Xử lý logic nghiệp vụ.
-- **AI Inference Service:** Docker Container riêng chạy PyTorch.
+## 🎮 Usage
 
-### 2.2. Các biểu đồ UML bắt buộc (Design Artifacts)
-- **Use Case Diagram:** Actor (Student, Admin) ↔ Use Cases (Scan Math, View Solution, Export PDF).
-- **Sequence Diagram:** User Upload → Backend → Preprocessing → AI Model → SymPy Solver → Response.
-- **Activity Diagram:** Grayscale → Binarization → Resize.
+To start the application, simply run the launcher script:
 
----
+```bash
+run_app.bat
+```
 
-## 💻 GIAI ĐOẠN 3: CÀI ĐẶT & TỐI ƯU HÓA (Weeks 4-7)
+This script will automatically:
+1.  Install necessary dependencies.
+2.  Start the **FastAPI Backend** server.
+3.  Launch the **Streamlit Frontend** interface.
 
-**Mục tiêu:** Coding (Giai đoạn trọng tâm).
+Once started, the application will be accessible at `http://localhost:8501`.
 
-### 3.1. Module AI (The Brain)
-- **Framework:** PyTorch, HuggingFace Transformers.
-- **Task 1:** Xây dựng `DatasetLoader` (CROHME + token hóa LaTeX).
-- **Task 2:** Huấn luyện mô hình (Training Loop).
-  - Loss: Cross-Entropy Loss + Label Smoothing.
-  - Optimizer: AdamW.
-- **Task 3:** Optimization (Mixed Precision fp16, ONNX Runtime).
+## 📂 Project Structure
 
-### 3.2. Module Solver & Backend
-- **Solver Engine:** Parser chuyển đổi LaTeX → SymPy.
-- **Xử lý lỗi:** Levenshtein Distance để sửa lỗi OCR.
-- **API:** FastAPI endpoint `/predict`.
+```
+Latex Scanner/
+├── ai_engine/          # AI Model training and inference logic
+├── backend/            # FastAPI backend server
+├── frontend/           # Streamlit web interface
+├── weight/             # Pre-trained model weights
+├── run_app.bat         # All-in-one launcher script
+└── README.md           # Project documentation
+```
 
----
+## 🤝 Contributing
 
-## 📦 GIAI ĐOẠN 4: ĐÓNG GÓI & TRIỂN KHAI (Week 8)
-
-**Mục tiêu:** Biến code thành sản phẩm chạy được (Deliverable).
-
-### 4.1. Dockerization
-- **Dockerfile:** Base Image `pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime`.
-- **docker-compose.yml:** Kết nối Frontend và Backend AI.
-
-### 4.2. UI Integration
-- **Giao diện Demo:** Upload ảnh, Hiển thị LaTeX (KaTeX), Hiển thị lời giải.
-
----
-
-## 📝 GIAI ĐOẠN 5: THUYẾT MINH & BÁO CÁO (Week 9-10)
-
-**Mục tiêu:** Bảo vệ thành công.
-- Viết báo cáo (Thesis/Report).
-- Quay video demo.
-
----
-
-## 🛠 TECH STACK
-
-| Component | Technology | Lý do chọn |
-|-----------|------------|------------|
-| Language | Python 3.9+ | Hệ sinh thái AI mạnh nhất. |
-| Deep Learning | PyTorch, Transformers | Support kiến trúc Encoder-Decoder tốt nhất. |
-| Vision Backbone | ViT / DeiT | Hiệu suất cao hơn CNN truyền thống. |
-| Backend API | FastAPI | Nhanh, support Async/Await. |
-| Math Engine | SymPy | Tính toán đại số tượng trưng mạnh mẽ. |
-| Deployment | Docker | "Write once, run anywhere". |
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 *Created by Antigravity AI Team*
