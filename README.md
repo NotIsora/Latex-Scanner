@@ -6,20 +6,18 @@
 
 ## 🚀 Features
 
-- **Handwritten Math OCR**: Accurately recognizes handwritten math formulas and converts them to LaTeX.
-- **Smart Solver**: Automatically solves the recognized formulas and provides step-by-step solutions (integration in progress).
-- **User-Friendly Interface**: Clean and modern Web UI built with Streamlit.
-- **High Performance**: Optimized for low latency inference.
+- **Handwritten Math OCR**: Accurately recognizes handwritten math formulas using a **Vision Encoder-Decoder** model finetuned on the **CROHME** dataset.
+- **Smart Solver**: Automatically solves the recognized formulas (integration in progress).
+- **High Performance**: Achieved **~10.8% Character Error Rate (CER)** on validation set.
+- **Robustness**: Trained with advanced data augmentation (Rotation, Gaussian Noise, Elastic Transform) to handle various handwriting styles.
 
 ## 🛠 Tech Stack
 
-- **Language**: Python 3.9+
-- **Deep Learning**: PyTorch, Transformers (HuggingFace)
-- **Vision Backbone**: Vision Transformer (ViT) / ResNet-101
-- **Decoder**: GPT-2 / RoBERTa
-- **Backend**: FastAPI
-- **Frontend**: Streamlit
-- **Math Engine**: SymPy
+- **Model Architecture**: Vision Encoder-Decoder (TrOCR style)
+- **Backbone**: Vision Transformer (ViT) / RoBERTa
+- **Dataset**: `Neeze/CROHME-full`
+- **Training**: PyTorch, HuggingFace Transformers, Albumentations (for augmentation), BitsAndBytes (8-bit optimization)
+- **Backend / Frontend**: Python, Streamlit
 
 ## 📦 Installation
 
