@@ -1,0 +1,15 @@
+streamlit
+fastapi
+uvicorn
+sympy
+python-multipart
+requests
+transformers
+torch
+torchvision
+pillow
+numpy
+pandas
+scikit-learn
+tqdm
+latex
