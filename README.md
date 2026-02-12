@@ -15,8 +15,14 @@
 
 - **Model Architecture**: Vision Encoder-Decoder (TrOCR style)
 - **Backbone**: Vision Transformer (ViT) / RoBERTa
-- **Dataset**: `Neeze/CROHME-full`
-- **Training**: PyTorch, HuggingFace Transformers, Albumentations (for augmentation), BitsAndBytes (8-bit optimization)
+- **Datasets**: 
+    - **Pre-training**: `Im2Latex-100k`
+    - **Fine-tuning**: `HME100k`
+    - **Final Fine-tuning**: `CROHME`
+- **Training**: 
+    - **Strategy**: Multi-stage training pipeline
+    - **Optimization**: Layer-wise Learning Rate Decay (LLDR) with 0.9 decay, AdamW 8-bit optimization
+    - **Frameworks**: PyTorch, HuggingFace Transformers, Albumentations, BitsAndBytes
 - **Backend / Frontend**: Python, Streamlit
 
 ## 📦 Installation
