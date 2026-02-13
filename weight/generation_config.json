@@ -1,15 +1,10 @@
 {
+  "_from_model_config": true,
   "bos_token_id": 0,
-  "decoder_start_token_id": 2,
-  "early_stopping": true,
-  "eos_token_id": [
-    2
-  ],
-  "length_penalty": 2.0,
-  "max_length": 256,
-  "no_repeat_ngram_size": 3,
-  "num_beams": 4,
+  "decoder_start_token_id": 0,
+  "eos_token_id": 2,
+  "forced_eos_token_id": 2,
   "pad_token_id": 1,
-  "transformers_version": "4.57.1",
-  "use_cache": false
+  "max_length": 1024,
+  "transformers_version": "4.40.0"
 }

@@ -1,28 +1,27 @@
 # ✨ Latex Scanner
 
-**Latex Scanner** is an AI-powered application that recognizes handwritten mathematical formulas and automatically solves them. The system combines a **Vision Transformer (ViT)** for image recognition with symbolic mathematics libraries to provide detailed solutions.
+**Latex Scanner** is an AI-powered application that recognizes handwritten mathematical formulas and automatically solves them. The system utilizes a **Universal Model for Image-to-Formula Recognition (UniMER)** architecture, combining a robust **HGNetv2** backbone with a transformer decoder.
 
 ---
 
 ## 🚀 Features
 
-- **Handwritten Math OCR**: Accurately recognizes handwritten math formulas using a **Vision Encoder-Decoder** model finetuned on the **CROHME** dataset.
-- **Smart Solver**: Automatically solves the recognized formulas (integration in progress).
-- **High Performance**: Achieved **~10.8% Character Error Rate (CER)** on validation set.
-- **Robustness**: Trained with advanced data augmentation (Rotation, Gaussian Noise, Elastic Transform) to handle various handwriting styles.
+- **Universal Math OCR**: Fine-tuned on the massive **UniMER** dataset, capable of recognizing complex handwritten formulas with high accuracy in real-world scenarios.
+- **Advanced Architecture**: Uses a **Vision Encoder-Decoder** with a custom **HGNetv2** backbone (optimized for feature extraction) and an **mBART** decoder.
+- **Smart Preprocessing**: Automatically resizes images while preserving aspect ratio (padding to square) to prevent distortion and improve accuracy on long formulas.
+- **Beam Search Decoding**: Uses beam search (num_beams=4) to explore multiple possible character sequences, ensuring higher accuracy than standard greedy decoding.
+- **High Performance**: Robust against noise, various handwriting styles, and complex formula structures thanks to the diverse training data.
 
 ## 🛠 Tech Stack
 
-- **Model Architecture**: Vision Encoder-Decoder (TrOCR style)
-- **Backbone**: Vision Transformer (ViT) / RoBERTa
+- **Model Architecture**: Vision Encoder-Decoder (UniMERNet variant)
+- **Backbone**: **HGNetv2** (High Performance GPU Network v2)
+- **Decoder**: mBART
 - **Datasets**: 
-    - **Pre-training**: `Im2Latex-100k`
-    - **Fine-tuning**: `HME100k`
-    - **Final Fine-tuning**: `CROHME`
+    - **Training Data**: **UniMER Dataset** (Universal Mathematical Expression Recognition)
 - **Training**: 
-    - **Strategy**: Multi-stage training pipeline
-    - **Optimization**: Layer-wise Learning Rate Decay (LLDR) with 0.9 decay, AdamW 8-bit optimization
-    - **Frameworks**: PyTorch, HuggingFace Transformers, Albumentations, BitsAndBytes
+    - **Optimization**: Layer-wise Learning Rate Decay (LLDR), AdamW
+    - **Frameworks**: PyTorch, HuggingFace Transformers, bitsandbytes
 - **Backend / Frontend**: Python, Streamlit
 
 ## 📦 Installation
@@ -40,9 +39,7 @@
     .\venv\Scripts\activate
     
     # Install requirements
-    pip install -r backend/requirements.txt
-    pip install -r frontend/requirements.txt
-    pip install -r ai_engine/requirements.txt
+    pip install -r requirements.txt
     ```
 
 ## 🎮 Usage
@@ -50,13 +47,14 @@
 To start the application, simply run the launcher script:
 
 ```bash
-run_app.bat
+# Run the Streamlit app
+streamlit run streamlit_app.py
 ```
 
-This script will automatically:
-1.  Install necessary dependencies.
-2.  Start the **FastAPI Backend** server.
-3.  Launch the **Streamlit Frontend** interface.
+Or use the provided batch script if available:
+```bash
+run_app.bat
+```
 
 Once started, the application will be accessible at `http://localhost:8501`.
 
@@ -64,11 +62,11 @@ Once started, the application will be accessible at `http://localhost:8501`.
 
 ```
 Latex Scanner/
-├── ai_engine/          # AI Model training and inference logic
-├── backend/            # FastAPI backend server
-├── frontend/           # Streamlit web interface
-├── weight/             # Pre-trained model weights
-├── run_app.bat         # All-in-one launcher script
+├── ai_engine/          # AI Model logic (inference, preprocessing, HGNetv2 definition)
+├── backend/            # Backend services
+├── frontend/           # Frontend assets
+├── weight/             # Pre-trained model weights (UniMER config)
+├── streamlit_app.py    # Main application entry point
 └── README.md           # Project documentation
 ```
 

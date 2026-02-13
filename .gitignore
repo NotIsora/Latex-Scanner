@@ -132,3 +132,7 @@ dmypy.json
 .vscode
 .idea
 *.safetensors
+weight/
+*.log
+verification_output.txt
+test_formula.png

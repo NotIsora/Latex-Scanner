@@ -1,8 +1,12 @@
 import streamlit as st
-import torch
 from PIL import Image
-from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 import os
+import sys
+
+# Ensure texo package can be imported
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from ai_engine.inference import MathPredictor
 
 # --- CONFIGURE PAGE ---
 st.set_page_config(page_title="Latex Scanner", page_icon="📝", layout="wide")
@@ -31,40 +35,46 @@ with st.sidebar:
     
     if model_source == "HuggingFace Hub":
         hf_repo_id = st.text_input("HF Repo ID", value="microsoft/trocr-base-handwritten")
+        st.warning("Note: Custom preprocessing improvements are only available with local models using ai_engine.")
     else:
         st.markdown("**Note:** Local weights must be in `weight/` folder.")
 
 # --- MODEL LOADING (CACHED) ---
 @st.cache_resource
-def load_model(source_type, input_path):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+def load_predictor(source_type, input_path):
     try:
         if source_type == "Local / Uploaded":
-            model_path = "weight"
-            if not os.path.exists(os.path.join(model_path, "config.json")):
-                 return None, None, f"Model not found in {model_path}. Please running locally or switch to HuggingFace."
+            # Use our improved MathPredictor
+            predictor = MathPredictor()
+            return predictor, None
         else:
-            model_path = input_path
+            # Fallback for HF models (basic loading)
+            from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+            import torch
             
-        processor = TrOCRProcessor.from_pretrained(model_path)
-        model = VisionEncoderDecoderModel.from_pretrained(model_path).to(device)
-        return processor, model, None
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            processor = TrOCRProcessor.from_pretrained(input_path)
+            model = VisionEncoderDecoderModel.from_pretrained(input_path).to(device)
+            return (processor, model), None
     except Exception as e:
-        return None, None, str(e)
+        return None, str(e)
 
 # --- LOAD MODEL ---
+predictor = None
+hf_components = None
+error = None
+
 if model_source == "Local / Uploaded":
-    processor, model, error = load_model("Local / Uploaded", None)
+    predictor, error = load_predictor("Local / Uploaded", None)
 else:
     if hf_repo_id:
-        processor, model, error = load_model("HuggingFace Hub", hf_repo_id)
+        hf_components, error = load_predictor("HuggingFace Hub", hf_repo_id)
     else:
-        processor, model, error = None, None, "Please enter a HuggingFace Repo ID."
+        error = "Please enter a HuggingFace Repo ID."
 
 if error:
     st.error(f"❌ Error loading model: {error}")
-    st.warning("⚠️ If running on Streamlit Cloud, default local weights are missing (too large for GitHub). Please upload your model to Hugging Face Hub and select that option, or use 'microsoft/trocr-base-handwritten' for testing.")
+    st.warning("⚠️ If running on Streamlit Cloud, default local weights are missing (too large for GitHub). Please upload your model to Hugging Face Hub and select that option.")
 
 # --- MAIN UI ---
 col1, col2 = st.columns([1, 1])
@@ -81,13 +91,20 @@ if uploaded_file is not None:
     with col2:
         st.subheader("✅ Result")
         
-        if processor and model:
+        if (predictor) or (hf_components):
             with st.spinner("🧠 Scanning & Recognizing..."):
                 try:
-                    # Inference
-                    pixel_values = processor(images=image, return_tensors="pt").pixel_values.to(model.device)
-                    generated_ids = model.generate(pixel_values)
-                    generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+                    generated_text = ""
+                    
+                    if predictor:
+                        # Use improved inference
+                        generated_text = predictor.predict(image)
+                    elif hf_components:
+                        # Use basic inference for HF models
+                        processor, model = hf_components
+                        pixel_values = processor(images=image, return_tensors="pt").pixel_values.to(model.device)
+                        generated_ids = model.generate(pixel_values)
+                        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
                     
                     st.success("Recognition Complete!")
                     st.code(generated_text, language="latex")
