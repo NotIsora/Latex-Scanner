@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-sympy
-python-multipart
-requests
-transformers
-torch
-torchvision
-pillow

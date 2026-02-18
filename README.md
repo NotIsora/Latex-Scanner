@@ -62,11 +62,11 @@ Once started, the application will be accessible at `http://localhost:8501`.
 
 ```
 Latex Scanner/
-├── ai_engine/          # AI Model logic (inference, preprocessing, HGNetv2 definition)
-├── backend/            # Backend services
-├── frontend/           # Frontend assets
-├── weight/             # Pre-trained model weights (UniMER config)
+├── ai_engine/          # AI Model logic (inference, preprocessing)
+├── weight/             # Pre-trained model weights
 ├── streamlit_app.py    # Main application entry point
+├── run_app.bat         # Launcher script for Windows
+├── requirements.txt    # Project dependencies
 └── README.md           # Project documentation
 ```
 

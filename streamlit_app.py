@@ -1,4 +1,8 @@
 import streamlit as st
+
+# --- CONFIGURE PAGE ---
+st.set_page_config(page_title="Latex Scanner", page_icon="📝", layout="wide")
+
 from PIL import Image
 import os
 import sys
@@ -7,9 +11,6 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from ai_engine.inference import MathPredictor
-
-# --- CONFIGURE PAGE ---
-st.set_page_config(page_title="Latex Scanner", page_icon="📝", layout="wide")
 
 # --- CUSTOM CSS ---
 st.markdown("""
@@ -38,6 +39,7 @@ with st.sidebar:
         st.warning("Note: Custom preprocessing improvements are only available with local models using ai_engine.")
     else:
         st.markdown("**Note:** Local weights must be in `weight/` folder.")
+        confidence_threshold = st.slider("Confidence Threshold", 0.0, 1.0, 0.0, 0.01)
 
 # --- MODEL LOADING (CACHED) ---
 @st.cache_resource
@@ -95,28 +97,45 @@ if uploaded_file is not None:
             with st.spinner("🧠 Scanning & Recognizing..."):
                 try:
                     generated_text = ""
+                    candidates = []
                     
                     if predictor:
                         # Use improved inference
-                        generated_text = predictor.predict(image)
+                        candidates = predictor.predict(image, threshold=confidence_threshold)
+                        if candidates:
+                            generated_text = candidates[0]['text']
+                            top_confidence = candidates[0]['confidence']
+                        else:
+                            st.error(f"No results found above confidence threshold {confidence_threshold}")
+                            
                     elif hf_components:
                         # Use basic inference for HF models
                         processor, model = hf_components
                         pixel_values = processor(images=image, return_tensors="pt").pixel_values.to(model.device)
                         generated_ids = model.generate(pixel_values)
                         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+                        candidates = [{"text": generated_text, "confidence": 1.0}]
                     
-                    st.success("Recognition Complete!")
-                    st.code(generated_text, language="latex")
-                    st.markdown(f"**Rendered:**")
-                    st.latex(generated_text)
-                    
-                    # Store history
-                    if "history" not in st.session_state:
-                         st.session_state.history = []
-                    if generated_text not in st.session_state.history:
-                         st.session_state.history.append(generated_text)
-                         
+                    if generated_text:
+                        st.success(f"Recognition Complete! (Confidence: {candidates[0]['confidence']:.4f})")
+                        st.code(generated_text, language="latex")
+                        st.markdown(f"**Rendered:**")
+                        st.latex(generated_text)
+                        
+                        # Store history
+                        if "history" not in st.session_state:
+                                st.session_state.history = []
+                        if generated_text not in st.session_state.history:
+                                st.session_state.history.append(generated_text)
+                                
+                        if len(candidates) > 1:
+                            with st.expander("Show other candidates"):
+                                for i, cand in enumerate(candidates[1:]):
+                                    st.markdown(f"**Candidate {i+2}** (Confidence: {cand['confidence']:.4f})")
+                                    st.code(cand['text'], language="latex")
+                                    st.latex(cand['text'])
+                                    st.divider()
+
                 except Exception as e:
                     st.error(f"Prediction failed: {e}")
         else:

@@ -56,7 +56,8 @@ class MathPredictor:
         
         return new_image
 
-    def predict(self, image_path_or_obj):
+    
+    def predict(self, image_path_or_obj, threshold=0.0):
         if isinstance(image_path_or_obj, str):
             image = Image.open(image_path_or_obj)
         else:
@@ -69,18 +70,44 @@ class MathPredictor:
         pixel_values = self.processor(images=processed_image, return_tensors="pt").pixel_values.to(self.device)
 
         # Generate with improved parameters
-        generated_ids = self.model.generate(
+        # We set num_return_sequences = num_beams to get all candidates
+        num_beams = 4
+        outputs = self.model.generate(
             pixel_values,
-            num_beams=4,
+            num_beams=num_beams,
+            num_return_sequences=num_beams, # Return all beams
             max_length=512,
             early_stopping=True,
             no_repeat_ngram_size=0,
+            return_dict_in_generate=True,
+            output_scores=True,
+            return_legacy_cache=False,
             # length_penalty=1.0, # Default
         )
         
-        generated_text = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-
-        return generated_text
+        generated_sequences = outputs.sequences
+        sequences_scores = outputs.sequences_scores
+        
+        candidates = []
+        
+        # Batch decode all sequences
+        decoded_texts = self.processor.batch_decode(generated_sequences, skip_special_tokens=True)
+        
+        for i, text in enumerate(decoded_texts):
+            # Calculate confidence
+            score = sequences_scores[i].item()
+            confidence = torch.exp(torch.tensor(score)).item()
+            
+            if confidence >= threshold:
+                candidates.append({
+                    "text": text,
+                    "confidence": confidence
+                })
+        
+        # Sort by confidence descending
+        candidates.sort(key=lambda x: x["confidence"], reverse=True)
+        
+        return candidates
 
 if __name__ == "__main__":
     # Test block
