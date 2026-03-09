@@ -1,10 +1,4 @@
-"""
-reference
-- https://github.com/PaddlePaddle/PaddleDetection/blob/develop/ppdet/modeling/backbones/hgnet_v2.py
-
-Copyright (c) 2024 The D-FINE Authors. All Rights Reserved.
-"""
-
+import math
 import logging
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -15,48 +9,147 @@ import torch.nn.functional as F
 from transformers import PretrainedConfig, PreTrainedModel
 from transformers.modeling_outputs import BaseModelOutput
 
-from .layer import ConvBNAct, LightConvBNAct
+# ==========================================
+# Layers (from texo/model/layer.py)
+# ==========================================
 
-__all__ = ["HGNetv2", "HGNetv2Config"]
-class StemBlock(nn.Module):
-    # for HGNetv2
-    def __init__(self, in_channels, mid_channels, out_channels):
+class PaddingSameAsPaddleMaxPool2d(torch.nn.Module):
+    def __init__(self, kernel_size, stride=1):
         super().__init__()
-        self.stem1 = ConvBNAct(
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.pool = torch.nn.MaxPool2d(kernel_size, stride, padding=0, ceil_mode=True)
+
+    def forward(self, x):
+        _, _, h, w = x.shape
+        pad_h_total = max(0, (math.ceil(h / self.stride) - 1) * self.stride + self.kernel_size - h)
+        pad_w_total = max(0, (math.ceil(w / self.stride) - 1) * self.stride + self.kernel_size - w)
+        pad_h = pad_h_total // 2
+        pad_w = pad_w_total // 2
+        x = torch.nn.functional.pad(x, [pad_w, pad_w_total - pad_w, pad_h, pad_h_total - pad_h])
+        return self.pool(x)
+
+class FrozenBatchNorm2d(nn.Module):
+    def __init__(self, num_features, eps=1e-5):
+        super(FrozenBatchNorm2d, self).__init__()
+        n = num_features
+        self.register_buffer("weight", torch.ones(n))
+        self.register_buffer("bias", torch.zeros(n))
+        self.register_buffer("running_mean", torch.zeros(n))
+        self.register_buffer("running_var", torch.ones(n))
+        self.eps = eps
+        self.num_features = n
+
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        num_batches_tracked_key = prefix + "num_batches_tracked"
+        if num_batches_tracked_key in state_dict:
+            del state_dict[num_batches_tracked_key]
+
+        super(FrozenBatchNorm2d, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        )
+
+    def forward(self, x):
+        w = self.weight.reshape(1, -1, 1, 1)
+        b = self.bias.reshape(1, -1, 1, 1)
+        rv = self.running_var.reshape(1, -1, 1, 1)
+        rm = self.running_mean.reshape(1, -1, 1, 1)
+        scale = w * (rv + self.eps).rsqrt()
+        bias = b - rm * scale
+        return x * scale + bias
+
+    def extra_repr(self):
+        return "{num_features}, eps={eps}".format(**self.__dict__)
+
+def freeze_batch_norm2d(module: nn.Module) -> nn.Module:
+    if isinstance(module, nn.BatchNorm2d):
+        module = FrozenBatchNorm2d(module.num_features)
+    else:
+        for name, child in module.named_children():
+            _child = freeze_batch_norm2d(child)
+            if _child is not child:
+                setattr(module, name, _child)
+    return module
+
+class ConvBNAct(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        stride=1,
+        groups=1,
+        use_act=True,
+    ):
+        super().__init__()
+        self.use_act = use_act
+
+        self.conv = nn.Conv2d(
             in_channels,
-            mid_channels,
-            kernel_size=3,
-            stride=2,
+            out_channels,
+            kernel_size,
+            stride,
+            padding= (kernel_size - 1) // 2,
+            groups=groups,
+            bias=False,
         )
-        self.stem2a = ConvBNAct(
-            mid_channels,
-            mid_channels // 2,
-            kernel_size=2,
-            stride=1,
-        )
-        self.stem2b = ConvBNAct(
-            mid_channels // 2,
-            mid_channels,
-            kernel_size=2,
-            stride=1,
-        )
-        self.stem3 = ConvBNAct(
-            mid_channels * 2,
-            mid_channels,
-            kernel_size=3,
-            stride=2,
-        )
-        self.stem4 = ConvBNAct(
-            mid_channels,
+
+        self.bn = nn.BatchNorm2d(out_channels)
+
+        if self.use_act:
+            self.act = nn.ReLU()
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        if self.use_act:
+            x = self.act(x)
+        return x
+
+class LightConvBNAct(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+    ):
+        super().__init__()
+        self.conv1 = ConvBNAct(
+            in_channels,
             out_channels,
             kernel_size=1,
-            stride=1,
+            use_act=False,
         )
+        self.conv2 = ConvBNAct(
+            out_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            groups=out_channels,
+            use_act=True,
+        )
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        return x
+
+# ==========================================
+# HGNetV2 (from texo/model/hgnet2.py)
+# ==========================================
+
+__all__ = ["HGNetv2", "HGNetv2Config"]
+
+class StemBlock(nn.Module):
+    def __init__(self, in_channels, mid_channels, out_channels):
+        super().__init__()
+        self.stem1 = ConvBNAct(in_channels, mid_channels, kernel_size=3, stride=2)
+        self.stem2a = ConvBNAct(mid_channels, mid_channels // 2, kernel_size=2, stride=1)
+        self.stem2b = ConvBNAct(mid_channels // 2, mid_channels, kernel_size=2, stride=1)
+        self.stem3 = ConvBNAct(mid_channels * 2, mid_channels, kernel_size=3, stride=2)
+        self.stem4 = ConvBNAct(mid_channels, out_channels, kernel_size=1, stride=1)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=1, ceil_mode=True)
-        # we don't use PaddleOCR2Pytorch implementation is since it will create a wrapper for pooling layer
-        # which we don't want as we want to have a network structure as closer as possible to PPFormulaNet
-        # PaddleOCR2Pytorch
-        # self.pool = PaddingSameAsPaddleMaxPool2d(kernel_size=2, stride=1)
 
     def forward(self, x):
         x = self.stem1(x)
@@ -76,11 +169,10 @@ class HG_Block(nn.Module):
         in_channels,
         mid_channels,
         out_channels,
-        layer_num, # NOTE in paddleOCR, this is 6 by default
+        layer_num,
         kernel_size=3,
-        residual=False, # NOTE same as the argument "identity" in paddleOCR but we keep the name here since it is indeed a residual connectioin
+        residual=False,
         light_block=True,
-        # drop_path=0.0,
     ):
         super().__init__()
         self.residual = residual
@@ -105,7 +197,6 @@ class HG_Block(nn.Module):
                     )
                 )
 
-        # feature aggregation
         total_channels = in_channels + layer_num * mid_channels
         self.aggregation_squeeze_conv = ConvBNAct(
             total_channels,
@@ -119,7 +210,6 @@ class HG_Block(nn.Module):
             kernel_size=1,
             stride=1,
         )
-        # self.drop_path = nn.Dropout(drop_path) if drop_path else nn.Identity()
 
     def forward(self, x):
         identity = x
@@ -131,7 +221,6 @@ class HG_Block(nn.Module):
         x = self.aggregation_squeeze_conv(x)
         x = self.aggregation_excitation_conv(x)
         if self.residual:
-            # x = self.drop_path(x) + identity
             x = x + identity
         return x
 
@@ -147,7 +236,6 @@ class HG_Stage(nn.Module):
         kernel_size:int=3,
         downsample:bool=True,
         light_block:bool=True,
-        # drop_path=0.0,
     ):
         super().__init__()
         self.use_downsample = downsample
@@ -172,7 +260,6 @@ class HG_Stage(nn.Module):
                     residual=False if i == 0 else True,
                     kernel_size=kernel_size,
                     light_block=light_block,
-                    # drop_path=drop_path[i] if isinstance(drop_path, (list, tuple)) else drop_path,
                 )
             )
         self.blocks = nn.Sequential(*blocks_list)
@@ -183,15 +270,13 @@ class HG_Stage(nn.Module):
         x = self.blocks(x)
         return x
 
-# adapted from PPHGNetV2 and PPHGNetV2_B4_Formula
 class HGNetv2Config(PretrainedConfig):
-    model_type = "my_hgnetv2" # do not confuse with the transformers hgnetv2
+    model_type = "my_hgnetv2"
 
     def __init__(
         self,
         stem_channels: List[int]=[3, 32, 48],
         stage_config: Dict[str, Tuple[int,int,int,int,int,int,bool,bool]]={
-            # in_channels, mid_channels, out_channels, num_blocks, num_layers, kernel_size, downsample, light_block
             "stage1": (48, 48, 128, 1, 6, 3, False, False),
             "stage2": (128, 96, 512, 1, 6, 3, True, False),
             "stage3": (512, 192, 1024, 3, 6, 5, True, True),
@@ -209,13 +294,7 @@ class HGNetv2Config(PretrainedConfig):
         self.pretrained = pretrained
         self.freeze = freeze
 
-# NOTE we follow the D-FINE structure which only model the backbone of PPHGNetV2 in HGNetV2
-# we seperate the task specific head into the task specific model
-# i.e. last_conv layers etc. in FormulaNet
 class HGNetv2(PreTrainedModel):
-    """
-    HGNetV2 backbone
-    """
     config_class = HGNetv2Config
     base_model_prefix = "my_hgnetv2"
     main_input_name = "pixel_values"
@@ -240,12 +319,10 @@ class HGNetv2(PreTrainedModel):
         x = self.stem(pixel_values)
         for stage in self.stages:
             x = stage(x)
-        # (B,C,H,W) -> (B,C,H*W) -> (B,H*W,C)
         out = x.flatten(2).transpose(1,2)
         return BaseModelOutput(last_hidden_state=out)
 
     def _freeze_norm(self, m: nn.Module):
-        from .layer import FrozenBatchNorm2d
         if isinstance(m, nn.BatchNorm2d):
             m = FrozenBatchNorm2d(m.num_features)
         else:

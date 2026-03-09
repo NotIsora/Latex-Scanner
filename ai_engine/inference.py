@@ -6,12 +6,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel, AutoConfig, AutoModel
 try:
-    from texo.model.hgnet2 import HGNetv2, HGNetv2Config
+    from ai_engine.model import HGNetv2, HGNetv2Config
     # Register the custom model
     AutoConfig.register("my_hgnetv2", HGNetv2Config)
     AutoModel.register(HGNetv2Config, HGNetv2)
-except ImportError:
-    print("Warning: Could not import texo package. Custom model 'my_hgnetv2' might fail to load.")
+except ImportError as e:
+    print(f"Warning: Could not import custom model 'my_hgnetv2': {e}")
 
 from PIL import Image
 import torch
